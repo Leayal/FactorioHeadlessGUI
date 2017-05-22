@@ -404,7 +404,7 @@ namespace FactorioHeadlessGUI.Classes
             pendingShutdown = true;
             // Save the game
             this.SaveAsync();
-            //this.inputStream.Dispose();
+            // this.inputStream.Dispose();
         }
 
         private void MyProcess_OutputDataReceived(object sender, DataReceivedEventArgs e)

@@ -13,6 +13,7 @@ namespace FactorioHeadlessGUI
     {
         private IniFile config;
         private Classes.FactorioHeadlessWrapper server;
+        private Classes.CommandLog cmdLog;
 
         public MyMainMenu() : this("FactorioHeadlessGUI.ini") { }
 
@@ -22,6 +23,7 @@ namespace FactorioHeadlessGUI
             if (string.IsNullOrWhiteSpace(configfile))
                 configfile = "FactorioHeadlessGUI.ini";
             this.config = new IniFile(configfile);
+            this.cmdLog = new Classes.CommandLog();
         }
 
         private void MyMainMenu_Load(object sender, EventArgs e)
@@ -184,7 +186,10 @@ namespace FactorioHeadlessGUI
         private void Server_ServerStopping(object sender, Classes.ServerStoppingEventArgs e)
         {
             if (MessageBox.Show("Are you sure you want to shut down the server???\n(This will kill the server without saving. Besure to make the gamesave before shutting down)", "Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == DialogResult.Yes)
+            {
+                this.textBoxServerCommand.Enabled = false;
                 this.exRichTextBoxCommandlog.AppendText("  [SYS] Shutting down server....");
+            }
             else
                 e.Cancel = true;
         }
@@ -206,7 +211,7 @@ namespace FactorioHeadlessGUI
 
         private void Server_ChatMessageArrived(object sender, Classes.ChatMessageArrivedEventArgs e)
         {
-            this.exRichTextBoxCommandlog.AppendText($"  [CHAT] {e.PlayerInfo.PlayerID}: {e.Message}", Leayal.Forms.RtfColor.Black);
+            this.richTextBoxChatLog.AppendText($"  [CHAT] {e.PlayerInfo.PlayerID}: {e.Message}", Leayal.Forms.RtfColor.Black);
         }
 
         private void Server_PlayerLeft(object sender, Classes.PlayerEventArgs e)
@@ -262,10 +267,13 @@ namespace FactorioHeadlessGUI
 
         private void Server_ServerStarted(object sender, EventArgs e)
         {
+            // Clear command log when server started ????
+            // this.cmdLog.Clear();
             this.Text = "Factorio Server: " + Path.GetFileNameWithoutExtension(this.textBoxSaveLocation.Text);
             this.listBoxPlayerList.Items.Clear();
             this.menuStrip1.Visible = true;
             this.textBoxServerCommand.ResetText();
+            this.textBoxServerCommand.Enabled = true;
             this.panelServerUI.Visible = true;
             this.panelConfig.Visible = false;
         }
@@ -274,12 +282,37 @@ namespace FactorioHeadlessGUI
         {
             if (this.server == null || !this.server.IsRunning) return;
             if (!e.Alt && !e.Control)
-                if (e.KeyCode == Keys.Enter)
+                switch (e.KeyCode)
                 {
-                    this.server.SendData(this.textBoxServerCommand.Text);
-                    if (!this.textBoxServerCommand.Text.StartsWith("/"))
-                        this.richTextBoxChatLog.AppendText($"  [CHAT] Server: {this.textBoxServerCommand.Text}");
-                    this.textBoxServerCommand.ResetText();
+                    case Keys.Enter:
+                        if (this.textBoxServerCommand.Enabled)
+                        {
+                            this.server.SendData(this.textBoxServerCommand.Text);
+                            this.cmdLog.Log(this.textBoxServerCommand.Text);
+                            if (!this.textBoxServerCommand.Text.StartsWith("/"))
+                                this.richTextBoxChatLog.AppendText($"  [CHAT] Server: {this.textBoxServerCommand.Text}");
+                            this.textBoxServerCommand.ResetText();
+                            this.cmdLog.ResetPosition();
+                        }
+                        break;
+                    case Keys.Up:
+                        var nextLog = this.cmdLog.GetNext();
+                        if (nextLog != null)
+                        {
+                            this.textBoxServerCommand.Text = nextLog;
+                            if (!string.IsNullOrEmpty(this.textBoxServerCommand.Text))
+                                this.textBoxServerCommand.SelectionStart = this.textBoxServerCommand.Text.Length;
+                        }
+                        break;
+                    case Keys.Down:
+                        var prevLog = this.cmdLog.GetPrevious();
+                        if (prevLog != null)
+                        {
+                            this.textBoxServerCommand.Text = prevLog;
+                            if (!string.IsNullOrEmpty(this.textBoxServerCommand.Text))
+                                this.textBoxServerCommand.SelectionStart = this.textBoxServerCommand.Text.Length;
+                        }
+                        break;
                 }
         }
 
